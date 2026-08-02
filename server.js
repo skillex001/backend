@@ -15,11 +15,17 @@ const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 const NodeCache = require('node-cache');
 const rateLimit = require('express-rate-limit');
+const ws = require("ws");
 
 // Initialize Supabase Client with Service Role Key to bypass RLS policies for payment updates
 const rawSupabaseUrl = process.env.SUPABASE_URL;
 const supabaseUrl = rawSupabaseUrl ? rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '') : '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+{
+        realtime: {
+            transport: ws
+        }
+    }
 
 function decodeJwtRole(token) {
   if (!token) return null;
