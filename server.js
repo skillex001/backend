@@ -18,14 +18,11 @@ const rateLimit = require('express-rate-limit');
 const ws = require("ws");
 
 // Initialize Supabase Client with Service Role Key to bypass RLS policies for payment updates
-const rawSupabaseUrl = process.env.SUPABASE_URL;
+// Accept both SUPABASE_* (Railway) and VITE_SUPABASE_* (local .env) naming.
+const rawSupabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseUrl = rawSupabaseUrl ? rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '') : '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-{
-        realtime: {
-            transport: ws
-        }
-    }
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+const WebSocket = require('ws');
 
 function decodeJwtRole(token) {
   if (!token) return null;
@@ -57,6 +54,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     persistSession: false,
     autoRefreshToken: false,
   },
+  realtime: {
+    transport: WebSocket
+  },
 });
 
 // Initialize Express
@@ -71,9 +71,18 @@ const configuredOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean);
+
+// Production frontend domains are always allowed so the hosted site works even
+// if CORS_ORIGIN wasn't set on the host. Listed in addition to CORS_ORIGIN.
+const productionOrigins = [
+  'https://www.budget-bites.food',
+  'https://budget-bites.food',
+  'https://budgetbites-mh1s.vercel.app',
+];
+
 const allowedOrigins = configuredOrigins.length > 0
-  ? configuredOrigins
-  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+  ? [...new Set([...configuredOrigins, ...productionOrigins])]
+  : [...new Set(['http://localhost:5173', 'http://127.0.0.1:5173', ...productionOrigins])];
 
 if (configuredOrigins.length === 0 && process.env.NODE_ENV === 'production') {
   console.warn('⚠️  CORS_ORIGIN is not set in production. Falling back to localhost-only origins — set CORS_ORIGIN to your real frontend domain(s).');
