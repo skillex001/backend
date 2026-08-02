@@ -17,9 +17,9 @@ const NodeCache = require('node-cache');
 const rateLimit = require('express-rate-limit');
 
 // Initialize Supabase Client with Service Role Key to bypass RLS policies for payment updates
-const rawSupabaseUrl = process.env.VITE_SUPABASE_URL;
+const rawSupabaseUrl = process.env.SUPABASE_URL;
 const supabaseUrl = rawSupabaseUrl ? rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '') : '';
-const supabaseServiceKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function decodeJwtRole(token) {
   if (!token) return null;
@@ -35,13 +35,13 @@ function decodeJwtRole(token) {
 }
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('❌ Missing VITE_SUPABASE_URL or ❌ VITE_SUPABASE_SERVICE_ROLE_KEY in .env file');
+  console.error('❌ Missing SUPABASE_URL or ❌ SUPABASE_SERVICE_ROLE_KEY in .env file');
   process.exit(1);
 }
 
 const supabaseJwtRole = decodeJwtRole(supabaseServiceKey);
 if (supabaseJwtRole !== 'service_role') {
-  console.error(`❌ VITE_SUPABASE_SERVICE_ROLE_KEY is invalid for this backend. Detected role: ${supabaseJwtRole || 'unknown'}`);
+  console.error(`❌ SUPABASE_SERVICE_ROLE_KEY is invalid for this backend. Detected role: ${supabaseJwtRole || 'unknown'}`);
   console.error('   Use the service_role key from Supabase Dashboard → Settings → API, not the anon key.');
   process.exit(1);
 }
