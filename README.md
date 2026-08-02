@@ -1,13 +1,12 @@
 # Budget Bites Backend
 
-Node.js + Express backend with M-Pesa STK Push integration and Firebase Firestore.
+Node.js + Express backend powering [Budget Bites](https://www.budget-bites.food) — M-Pesa STK Push (Safaricom Daraja API), M-Pesa callbacks, Supabase integration (service-role for order/payment updates), live order notifications, and admin/partner management.
 
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies
 
 ```bash
-cd backend
 npm install
 ```
 
@@ -15,30 +14,26 @@ npm install
 
 ```bash
 cp .env.example .env
-```https://ctuogfqjlxfestkbxrde.supabase.co/rest/v1/
-
-Edit `.env` and fill in:
-
-- **Firebase credentials** (from Firebase Console → Project Settings → Service Accounts)
-- **M-Pesa Daraja credentials** (from https://developer.safaricom.co.ke/)
-
-### 3. Initialize Database
-
-```bash
-npm run setup
 ```
 
-This creates:
-- Admin user account
-- Sample restaurants
-- Sample meals
-- Landmarks
-- Platform settings
+Then fill in `.env` with your **real** values. Never commit `.env` — it is git-ignored.
+
+- **Supabase** (project URL, service-role key) — Supabase Dashboard → Settings → API
+- **M-Pesa Daraja credentials** — https://developer.safaricom.co.ke/
+
+### 3. (Optional) Seed Demo Users
+
+```bash
+npm run seed
+```
+
+Creates demo admin/restaurant/rider accounts with randomly generated temporary passwords (printed once to the terminal).
 
 ### 4. Start Server
 
 ```bash
-npm run dev
+npm run dev      # development (nodemon)
+npm start        # production
 ```
 
 Server runs on `http://localhost:3000`
@@ -49,17 +44,20 @@ Server runs on `http://localhost:3000`
 
 1. Install ngrok: https://ngrok.com/
 2. Start ngrok: `ngrok http 3000`
-3. Copy the HTTPS URL (e.g., `https://abc123.ngrok.io`)
+3. Copy the HTTPS URL (e.g., `https://abc123.ngrok-free.app`)
 4. Update `.env`:
    ```
-   MPESA_CALLBACK_URL=https://abc123.ngrok.io/api/mpesa/callback
+   MPESA_CALLBACK_URL=https://abc123.ngrok-free.app/api/mpesa/callback
    ```
 
 ### For Production
 
-1. Deploy to a hosting service (Heroku, Railway, Render, etc.)
-2. Update `MPESA_CALLBACK_URL` to your production domain
-3. Update `CORS_ORIGIN` to your frontend domain
+1. Deploy to a hosting service (Railway, Render, etc.)
+2. Set `MPESA_CALLBACK_URL` to your production domain
+3. Set `CORS_ORIGIN` to your frontend domain(s), comma-separated:
+   ```
+   CORS_ORIGIN=https://www.budget-bites.food,https://budget-bites.food
+   ```
 
 ## 🔑 Getting M-Pesa Credentials
 
@@ -76,100 +74,101 @@ Server runs on `http://localhost:3000`
 
 ### M-Pesa
 
-- `POST /api/mpesa/stkpush` - Initiate STK push
+- `POST /api/mpesa/stkpush` - Initiate STK push (rate-limited)
 - `POST /api/mpesa/callback` - M-Pesa callback (for Safaricom)
 - `GET /api/mpesa/status/:checkoutRequestID` - Query payment status
 
 ### Orders
 
-- `GET /api/orders` - Get all orders (with filters)
-- `POST /api/orders` - Create new order
-- `PATCH /api/orders/:orderId` - Update order status
+- `POST /api/orders` - Create/update order
+- `GET /api/bootstrap` - Public bootstrap data (restaurants, meals, riders, landmarks, distances, recent orders, applications)
 
-### Restaurants
+### Restaurants / Riders / Users (admin)
 
-- `GET /api/restaurants` - Get all restaurants
-- `GET /api/restaurants/:id/menu` - Get restaurant menu
+- `POST /api/admin/restaurants/create` - Admin: create restaurant account
+- `POST /api/admin/riders/create` - Admin: create rider account
+- `POST /api/admin/users/ensure-profile` - Self: ensure own profile row exists
+- `POST /api/admin/users/reset-password` - Admin: reset restaurant/rider password
+- `POST /api/admin/applications/restaurant/:id/approve|reject` - Admin
+- `POST /api/admin/applications/rider/:id/approve|reject` - Admin
+- `POST /api/admin/restaurants/verify` - Admin
+- `POST /api/admin/restaurants/secret-menu-partner` - Admin
+- `POST /api/admin/riders/verify` - Admin
+- `POST /api/admin/riders/trusted-courier` - Admin
+
+### Public Applications
+
+- `POST /api/applications/restaurant` - Submit restaurant partner application
+- `POST /api/applications/rider` - Submit rider partner application
 
 ### System
 
 - `GET /api/health` - Health check
 
-## 🔥 Firebase Collections
-
-- `users` - User accounts (admin, restaurant, rider, customer)
-- `restaurants` - Restaurant profiles
-- `meals` - Menu items
-- `orders` - Order records
-- `riders` - Rider profiles
-- `landmarks` - Delivery locations
-- `notifications` - System notifications
-- `settings` - Platform configuration
-
 ## 🛡️ Security
 
-- CORS is configured to only allow your frontend domain
-- M-Pesa callbacks are validated
-- Rate limiting on STK push requests
-- JWT authentication (implement as needed)
+- **CORS** is restricted to configured frontend origins (never `*`)
+- **Rate limiting** on unauthenticated signup + payment endpoints
+- **JWT auth** verified on all admin/partner routes (via Supabase `getUser`)
+- **Service-role key** never leaves the server; used only for privileged DB operations
+- **Amount-mismatch guard** on M-Pesa order payments
+- **Redacted logging** — callback logs never include full phone numbers/receipts
+- **Admin-gated** restaurant/rider creation and password resets
 
 ## 📝 Environment Variables
+
+See `.env.example` for the full template. All values below must be set in your deployment environment, **never** committed.
 
 | Variable | Description |
 |----------|-------------|
 | `PORT` | Server port (default: 3000) |
-| `FIREBASE_PROJECT_ID` | Firebase project ID |
-| `FIREBASE_CLIENT_EMAIL` | Service account email |
-| `FIREBASE_PRIVATE_KEY` | Service account private key |
+| `NODE_ENV` | `development` or `production` |
+| `SUPABASE_URL` / `VITE_SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` / `VITE_SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key |
+| `CORS_ORIGIN` | Comma-separated allowed frontend origins |
 | `MPESA_ENV` | `sandbox` or `production` |
-| `MPESA_CONSUMER_KEY` | Daraja consumer key |
-| `MPESA_CONSUMER_SECRET` | Daraja consumer secret |
-| `MPESA_SHORTCODE` | Paybill number |
+| `MPESA_CONSUMER_KEY` | Daraja consumer key (sandbox) |
+| `MPESA_CONSUMER_SECRET` | Daraja consumer secret (sandbox) |
+| `MPESA_PROD_CONSUMER_KEY` | Daraja consumer key (production) |
+| `MPESA_PROD_CONSUMER_SECRET` | Daraja consumer secret (production) |
+| `MPESA_SHORTCODE` | Paybill/Till number |
 | `MPESA_PASSKEY` | M-Pesa passkey |
-| `MPESA_CALLBACK_URL` | Public callback URL |
+| `MPESA_CALLBACK_URL` | Public HTTPS callback URL |
+| `MPESA_ACCOUNT_REF` | Default STK account reference (default: BudgetBites) |
+| `MPESA_TRANSACTION_DESC` | Default STK transaction description |
 
 ## 🚨 Troubleshooting
 
 ### M-Pesa STK Push Fails
 
-1. Check if credentials are correct
-2. Verify phone number format (must be 2547XXXXXXXX)
-3. Check if callback URL is publicly accessible
-4. Check ngrok is running (for local dev)
+1. Check credentials are correct
+2. Verify phone format (must be `2547XXXXXXXX`)
+3. Check callback URL is publicly accessible over HTTPS
+4. Check ngrok is running (local dev)
+5. Confirm `MPESA_ENV` matches the credentials you're using (sandbox vs production)
 
-### Firebase Connection Errors
+### Supabase Connection Errors
 
-1. Verify service account credentials
-2. Check Firestore is enabled in Firebase Console
-3. Ensure service account has Firestore admin permissions
+1. Verify `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env` / host
+2. Use the **service-role** key (not the anon key) — the server validates the JWT role
+3. Ensure the service-role key is rotated in Supabase Dashboard if it has ever leaked
 
 ## 📦 Deployment
 
-### Heroku
-
-```bash
-heroku create budget-bites-backend
-heroku config:set FIREBASE_PROJECT_ID=xxx
-heroku config:set FIREBASE_CLIENT_EMAIL=xxx
-# ... set all env vars
-git push heroku main
-```
-
 ### Railway
 
-1. Connect GitHub repo
-2. Add environment variables in Railway dashboard
+1. Connect the GitHub repo
+2. Add environment variables in the Railway dashboard (all values from the table above)
 3. Deploy
 
 ### Render
 
-1. Create new Web Service
-2. Connect repo
+1. Create a new Web Service
+2. Connect the repo
 3. Add environment variables
 4. Deploy
 
 ## 📞 Support
 
-For issues or questions, contact:
-- Email: admin@budgetbites.co.ke
-- Phone: +254 700 000 000
+For issues or questions, contact the project maintainers via the [Budget Bites website](https://www.budget-bites.food).
+
